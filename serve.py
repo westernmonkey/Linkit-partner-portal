@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Local dev server — always 200 (no 304) and serves favicon."""
+"""Local dev server — SPA routes for /partnerportal-NAME/ paths."""
 
 import http.server
 import os
+import re
 import socketserver
 
 PORT = 8080
 DIR = os.path.dirname(os.path.abspath(__file__))
+PARTNER_ROUTE = re.compile(r"partnerportal-[A-Za-z0-9_-]+", re.I)
+STATIC_EXT = re.compile(r"\.(css|js|json|png|svg|ttf|woff2?|ico)$", re.I)
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -18,27 +21,37 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Pragma", "no-cache")
         super().end_headers()
 
-    def _map_path(self):
-        if self.path.split("?")[0] in ("/favicon.ico", "/favicon.svg"):
-            self.path = "/assets/favicon.svg"
+    def _rewrite_path(self):
+        raw = self.path
+        clean = raw.split("?")[0].rstrip("/") or "/"
+        query = f"?{raw.split('?', 1)[1]}" if "?" in raw else ""
+
+        if clean in ("/favicon.ico", "/favicon.svg"):
+            return f"/assets/favicon.svg{query}"
+
+        # Static assets always served as-is
+        if STATIC_EXT.search(clean):
+            return raw
+
+        # Partner portal SPA — /partnerportal-comfi, /partnerportal-comfi/submitlead, etc.
+        if PARTNER_ROUTE.search(clean):
+            return f"/index.html{query}"
+
+        return raw
 
     def do_GET(self):
-        self._map_path()
+        self.path = self._rewrite_path()
         return super().do_GET()
 
     def do_HEAD(self):
-        self._map_path()
+        self.path = self._rewrite_path()
         return super().do_HEAD()
-
-    def log_message(self, fmt, *args):
-        status = args[1] if len(args) > 1 else ""
-        if str(status) in ("404", "304"):
-            return
-        super().log_message(fmt, *args)
 
 
 if __name__ == "__main__":
     socketserver.TCPServer.allow_reuse_address = True
     with socketserver.TCPServer(("", PORT), Handler) as httpd:
         print(f"Serving at http://localhost:{PORT}")
+        print(f"Partner portal: http://localhost:{PORT}/partnerportal-comfi/")
+        print(f"  Submit lead: http://localhost:{PORT}/partnerportal-comfi/submitlead")
         httpd.serve_forever()

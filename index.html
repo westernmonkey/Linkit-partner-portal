@@ -3,12 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <base href="/" />
   <title>Linkit Partner Portal</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="assets/fonts/fonts.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+
+  <div class="loading-overlay" id="loadingOverlay" aria-live="polite" aria-busy="true">
+    <div class="loading-spinner"></div>
+  </div>
 
   <div class="app">
 
@@ -53,6 +58,8 @@
 
     <!-- ======================= MAIN ======================= -->
     <main class="main">
+
+      <div class="setup-banner" id="setupBanner" hidden></div>
 
       <!-- ============ TAB: OVERVIEW ============ -->
       <section class="tab-panel active" id="tab-overview">
@@ -132,23 +139,28 @@
             <div class="form-row">
               <div class="field">
                 <label for="leadName">Name of Lead <em>*</em></label>
-                <input type="text" id="leadName" name="leadName" placeholder="e.g. Nasser Rahman" required />
+                <input type="text" id="leadName" name="leadName" autocomplete="name" required />
               </div>
               <div class="field">
                 <label for="companyName">Company Name <em>*</em></label>
-                <input type="text" id="companyName" name="companyName" placeholder="e.g. Gulf Trading FZE" required />
+                <input type="text" id="companyName" name="companyName" autocomplete="organization" required />
               </div>
             </div>
 
             <div class="form-row">
               <div class="field">
                 <label for="mobile">Mobile Number <em>*</em></label>
-                <input type="tel" id="mobile" name="mobile" placeholder="+971 50 123 4567" required />
+                <input type="tel" id="mobile" name="mobile" inputmode="numeric" pattern="[0-9]+" autocomplete="tel" required />
               </div>
               <div class="field">
                 <label for="turnover">Annual Turnover (AED) <em>*</em></label>
-                <input type="number" id="turnover" name="turnover" placeholder="e.g. 5000000" min="0" required />
+                <input type="number" id="turnover" name="turnover" min="0" step="1000" required />
               </div>
+            </div>
+
+            <div class="field">
+              <label for="business_location">Business Location <em>*</em></label>
+              <input type="text" id="business_location" name="business_location" required />
             </div>
 
             <div class="field">
@@ -162,7 +174,7 @@
 
             <div class="form-actions">
               <button type="submit" class="btn btn-dark btn-lg" id="submitBtn">Submit Lead&nbsp;→</button>
-              <p class="form-note">Your lead is routed to the Linkit team instantly via the partner pipeline.</p>
+              <p class="form-note" id="submitHint">Your lead is routed to the Linkit team instantly via the partner pipeline.</p>
             </div>
           </form>
 
@@ -189,10 +201,13 @@
         <header class="page-header">
           <div>
             <span class="eyebrow">Pipeline</span>
-            <h1>My <span class="accent">Leads</span>.</h1>
+            <h1>My <span class="accent">Leads</span></h1>
             <p class="sub">Track every referral you've made and where it sits in the Linkit funnel.</p>
           </div>
-          <button class="btn btn-dark" data-goto="submit">+ New Lead</button>
+          <div class="header-actions">
+            <button class="btn btn-ghost" id="refreshBtn" type="button" title="Refresh from Zoho">↻ Refresh</button>
+            <button class="btn btn-dark" data-goto="submit">+ New Lead</button>
+          </div>
         </header>
 
         <div class="card table-card">
@@ -205,7 +220,7 @@
               <button class="chip" data-filter="Rejected">Rejected</button>
               <button class="chip" data-filter="Disbursed">Disbursed</button>
             </div>
-            <input type="search" id="leadSearch" class="search-input" placeholder="Search leads…" />
+            <input type="search" id="leadSearch" class="search-input" placeholder="Search leads" />
           </div>
           <div class="table-wrap">
             <table class="leads-table">

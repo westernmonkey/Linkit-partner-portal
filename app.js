@@ -1,24 +1,16 @@
 /* ===================================================================
    Linkit Partner Portal
    -------------------------------------------------------------------
-   CONFIG: wire this portal into your existing n8n -> Zoho CRM flow.
+   URLs:
+     /partnerportal-comfi/              → Overview
+     /partnerportal-comfi/submitlead    → Submit a Lead
+     /partnerportal-comfi/leads         → My Leads
+     /partnerportal-comfi/commissions   → Commissions
 
-   - submitWebhookUrl: your existing n8n webhook that receives lead
-     form submissions and pushes them into Zoho CRM. Leave "" to demo.
-
-   - leadsFeedUrl: a second (new) n8n webhook that, given a partnerId,
-     returns this partner's leads + statuses from Zoho CRM as JSON:
-       [{ id, leadName, companyName, mobile, vat, turnover,
-          status, commission, paidOut, submittedAt, disbursedAt }]
-     Leave "" to use the bundled demo data.
-     (See README.md for the full status-update workflow.)
+   n8n reads the Referer header on submit (same webhook as FB ads page):
+     • referer contains "fb-leads"         → Facebook lead
+     • referer contains "partnerportal-"  → regex extracts partner (e.g. comfi → COMFI)
    =================================================================== */
-
-const CONFIG = {
-  partner: { id: "PTR-0042", name: "Apex Advisory" },
-  submitWebhookUrl: "",
-  leadsFeedUrl: "",
-};
 
 const STATUSES = ["New", "In Review", "Approved", "Rejected", "Disbursed"];
 
@@ -30,26 +22,26 @@ const BADGE_CLASS = {
   "Disbursed": "badge-disbursed",
 };
 
-/* ------------------------- demo data ------------------------- */
+const TAB_TO_PATH = {
+  overview: "",
+  submit: "submitlead",
+  leads: "leads",
+  commissions: "commissions",
+};
 
-const DEMO_LEADS = [
-  { id: "L-1001", leadName: "Nasser Rahman",   companyName: "Gulf Horizon Trading",  mobile: "+971 50 214 7789", vat: "yes", turnover: 8500000,  status: "Disbursed", commission: 12750, paidOut: true,  submittedAt: "2026-02-03", disbursedAt: "2026-03-11" },
-  { id: "L-1002", leadName: "Ulviyya Aliyeva", companyName: "Caspian Foods FZE",     mobile: "+971 55 880 1123", vat: "yes", turnover: 4200000,  status: "Disbursed", commission: 6300,  paidOut: true,  submittedAt: "2026-02-17", disbursedAt: "2026-03-28" },
-  { id: "L-1003", leadName: "Vikram Shetty",   companyName: "Meridian Imports LLC",  mobile: "+971 52 446 9034", vat: "no",  turnover: 2100000,  status: "Disbursed", commission: 3150,  paidOut: false, submittedAt: "2026-03-05", disbursedAt: "2026-04-19" },
-  { id: "L-1004", leadName: "Fatima Al Suwaidi", companyName: "Pearl Route Logistics", mobile: "+971 50 992 3471", vat: "yes", turnover: 12500000, status: "Disbursed", commission: 18750, paidOut: false, submittedAt: "2026-03-22", disbursedAt: "2026-05-08" },
-  { id: "L-1005", leadName: "Daniel Okafor",   companyName: "Sahara Tech Supplies",  mobile: "+971 54 671 2280", vat: "idk", turnover: 1800000,  status: "Approved",  commission: 0, paidOut: false, submittedAt: "2026-04-02" },
-  { id: "L-1006", leadName: "Priya Menon",     companyName: "Coral Coast Textiles",  mobile: "+971 56 309 8852", vat: "yes", turnover: 6700000,  status: "Approved",  commission: 0, paidOut: false, submittedAt: "2026-04-15" },
-  { id: "L-1007", leadName: "Hassan Karim",    companyName: "Atlas Build Materials", mobile: "+971 50 118 6645", vat: "no",  turnover: 950000,   status: "Rejected",  commission: 0, paidOut: false, submittedAt: "2026-04-21" },
-  { id: "L-1008", leadName: "Elena Petrova",   companyName: "NordStar Electronics",  mobile: "+971 58 774 0913", vat: "yes", turnover: 3400000,  status: "In Review", commission: 0, paidOut: false, submittedAt: "2026-05-12" },
-  { id: "L-1009", leadName: "Omar Bashir",     companyName: "Dune Valley Foods",     mobile: "+971 55 240 7768", vat: "idk", turnover: 2750000,  status: "In Review", commission: 0, paidOut: false, submittedAt: "2026-05-26" },
-  { id: "L-1010", leadName: "Sara Iqbal",      companyName: "Lattice Packaging Co",  mobile: "+971 52 893 5510", vat: "no",  turnover: 1250000,  status: "Rejected",  commission: 0, paidOut: false, submittedAt: "2026-05-30" },
-  { id: "L-1011", leadName: "Tom Vandenberg",  companyName: "Beacon Marine Parts",   mobile: "+971 50 667 3399", vat: "yes", turnover: 5600000,  status: "New",       commission: 0, paidOut: false, submittedAt: "2026-06-08" },
-  { id: "L-1012", leadName: "Aisha Diallo",    companyName: "Savanna Agro Exports",  mobile: "+971 54 035 1187", vat: "idk", turnover: 4100000,  status: "New",       commission: 0, paidOut: false, submittedAt: "2026-06-10" },
-];
+const PATH_TO_TAB = {
+  "": "overview",
+  overview: "overview",
+  submitlead: "submit",
+  leads: "leads",
+  commissions: "commissions",
+};
 
+let config = null;
 let leads = [];
 let activeFilter = "all";
 let searchQuery = "";
+let isLoading = false;
 
 /* ------------------------- helpers ------------------------- */
 
@@ -61,9 +53,9 @@ const fmtAED = (n) =>
 
 const fmtDate = (iso) => {
   if (!iso) return "—";
-  return new Date(iso + "T00:00:00").toLocaleDateString("en-GB", {
-    day: "numeric", month: "short", year: "numeric",
-  });
+  const d = new Date(iso.includes("T") ? iso : iso + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 };
 
 const vatLabel = { yes: "Yes", no: "No", idk: "Unknown" };
@@ -76,23 +68,184 @@ function showToast(msg, type = "success") {
   showToast._t = setTimeout(() => toast.classList.remove("show"), 3200);
 }
 
+function setLoading(on) {
+  isLoading = on;
+  $("#loadingOverlay")?.classList.toggle("active", on);
+  updateFormState();
+}
+
+function esc(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/* ------------------------- config & partner URL ------------------------- */
+
+const DEFAULT_WEBHOOK = "https://vineethapadma.app.n8n.cloud/webhook/loan-form";
+const PARTNER_RE = /partnerportal-([A-Za-z0-9_-]+)/i;
+
+function extractPartnerSlug() {
+  const match = `${location.hostname}${location.pathname}`.match(PARTNER_RE);
+  return match ? match[1].toUpperCase() : "";
+}
+
+function getPartnerBasePath() {
+  const slug = config?.partner?.slug;
+  return slug ? `/partnerportal-${slug.toLowerCase()}` : "";
+}
+
+function tabFromPath() {
+  const parts = location.pathname.split("/").filter(Boolean);
+  const last = (parts[parts.length - 1] || "").toLowerCase();
+  if (PATH_TO_TAB[last] !== undefined) return PATH_TO_TAB[last];
+  if (parts.some((p) => PARTNER_RE.test(p))) return "overview";
+  return null;
+}
+
+async function loadConfig() {
+  let fileConfig = {};
+  try {
+    const res = await fetch("config.json", { cache: "no-store" });
+    if (res.ok) fileConfig = await res.json();
+  } catch {
+    /* config.json optional */
+  }
+
+  const params = new URLSearchParams(location.search);
+  const slug = extractPartnerSlug() || (params.get("partner") || "").toUpperCase();
+
+  config = {
+    partner: {
+      slug,
+      portalPath: slug ? `partnerportal-${slug.toLowerCase()}` : "",
+    },
+    submitWebhookUrl: fileConfig.submitWebhookUrl || DEFAULT_WEBHOOK,
+    leadsFeedUrl: fileConfig.leadsFeedUrl || "",
+  };
+
+  return config;
+}
+
+function canSubmit() {
+  return Boolean(config?.partner?.slug && config?.submitWebhookUrl);
+}
+
+function hasLeadsFeed() {
+  return Boolean(config?.leadsFeedUrl && config?.partner?.slug);
+}
+
+function updateSetupBanner() {
+  const banner = $("#setupBanner");
+  if (!banner) return;
+
+  const notes = [];
+
+  if (!config?.partner?.slug) {
+    notes.push(
+      "Open at <code>/partnerportal-YOURNAME/</code> (e.g. <code>/partnerportal-comfi/submitlead</code>). " +
+      "n8n reads the Referer header to tag the partner in Zoho."
+    );
+  }
+  if (!config?.submitWebhookUrl) {
+    notes.push("Set <code>submitWebhookUrl</code> in <code>config.json</code>.");
+  }
+  if (!hasLeadsFeed()) {
+    notes.push("Dashboard needs <code>leadsFeedUrl</code> in config (optional — submit still works).");
+  }
+
+  if (!notes.length) {
+    banner.hidden = true;
+    return;
+  }
+
+  banner.hidden = false;
+  banner.innerHTML = notes.map((n) => `<p>${n}</p>`).join("");
+}
+
+function applyPartnerUI() {
+  const { slug, portalPath } = config.partner;
+  $("#partnerName").textContent = slug || "—";
+  $("#partnerId").textContent = portalPath || "—";
+  $("#partnerAvatar").textContent = slug ? slug.slice(0, 2) : "—";
+  $("#overviewPartnerFirst").textContent = slug || "Partner";
+}
+
+/* ------------------------- lead normalization ------------------------- */
+
+function mapVatToPortal(vat) {
+  const v = String(vat).toLowerCase();
+  if (v === "yes" || v.startsWith("y")) return "yes";
+  if (v === "no" || v.startsWith("n")) return "no";
+  return "idk";
+}
+
+function mapVatToWebhook(vat) {
+  return { yes: "Yes", no: "No", idk: "Not Sure" }[vat] || "Not Sure";
+}
+
+function buildSubmitPayload() {
+  return {
+    full_name: $("#leadName").value.trim(),
+    company_name: $("#companyName").value.trim(),
+    mobile_whatsapp: $("#mobile").value.trim(),
+    turnover_sales: $("#turnover").value.trim(),
+    vat_registered: mapVatToWebhook(selectedVat),
+    business_location: $("#business_location").value.trim(),
+  };
+}
+
+function normalizeLead(raw) {
+  const vat = raw.vat ?? raw.vatRegistered ?? raw.vat_registered ?? raw.VAT ?? "";
+  const vatNorm = mapVatToPortal(vat);
+  const paid = raw.paidOut ?? raw.commissionPaid ?? raw.paid ?? false;
+
+  let status = raw.status ?? raw.leadStatus ?? raw.Lead_Status ?? "New";
+  if (!STATUSES.includes(status)) status = "New";
+
+  return {
+    id: String(raw.id ?? raw.leadId ?? raw.recordId ?? ""),
+    leadName: raw.leadName ?? raw.full_name ?? raw.name ?? raw.Full_Name ?? "",
+    companyName: raw.companyName ?? raw.company_name ?? raw.company ?? raw.Company ?? "",
+    mobile: raw.mobile ?? raw.mobile_whatsapp ?? raw.phone ?? raw.Mobile ?? "",
+    vat: vatNorm,
+    turnover: Number(raw.turnover ?? raw.turnover_sales ?? raw.annualTurnover ?? raw.Turnover ?? 0),
+    status,
+    commission: Number(raw.commission ?? raw.commissionAmount ?? 0),
+    paidOut: paid === true || paid === "true" || paid === 1 || paid === "1",
+    submittedAt: (raw.submittedAt ?? raw.createdAt ?? raw.Created_Time ?? "").slice(0, 10),
+    disbursedAt: (raw.disbursedAt ?? raw.disbursedOn ?? "").slice(0, 10),
+  };
+}
+
 /* ------------------------- data loading ------------------------- */
 
 async function loadLeads() {
-  if (CONFIG.leadsFeedUrl) {
-    try {
-      const res = await fetch(
-        `${CONFIG.leadsFeedUrl}?partnerId=${encodeURIComponent(CONFIG.partner.id)}`
-      );
-      if (!res.ok) throw new Error(`Feed returned ${res.status}`);
-      leads = await res.json();
-      return;
-    } catch (err) {
-      console.error("Lead feed failed, falling back to demo data:", err);
-      showToast("Couldn't reach the lead feed — showing demo data", "error");
-    }
+  if (!hasLeadsFeed()) {
+    leads = [];
+    return;
   }
-  leads = [...DEMO_LEADS];
+
+  setLoading(true);
+  try {
+    const url = new URL(config.leadsFeedUrl);
+    url.searchParams.set("partner", config.partner.slug);
+
+    const res = await fetch(url.toString(), { cache: "no-store" });
+    if (!res.ok) throw new Error(`Lead feed returned ${res.status}`);
+
+    const data = await res.json();
+    const rows = Array.isArray(data) ? data : data.leads ?? data.data ?? [];
+    leads = rows.map(normalizeLead).filter((l) => l.leadName || l.companyName);
+  } catch (err) {
+    console.error("Lead feed failed:", err);
+    leads = [];
+    showToast("Could not load leads — check your connection", "error");
+  } finally {
+    setLoading(false);
+  }
 }
 
 /* ------------------------- derived stats ------------------------- */
@@ -121,19 +274,20 @@ function renderOverview() {
   const s = computeStats();
 
   $("#statTotal").textContent = s.total;
-  $("#statTotalFoot").textContent = `${s.inPipeline} currently in pipeline`;
+  $("#statTotalFoot").textContent = s.inPipeline
+    ? `${s.inPipeline} currently in pipeline`
+    : "no leads in pipeline";
   $("#statEarned").textContent = fmtAED(s.earned);
   $("#statApproved").textContent = s.approved;
   $("#statRejected").textContent = s.rejected;
   $("#statRejectedFoot").textContent = s.total
     ? `${Math.round((s.rejected / s.total) * 100)}% of all leads`
-    : "of all leads";
+    : "no leads yet";
   $("#statDisbursed").textContent = s.disbursedCount;
   $("#statPaid").textContent = fmtAED(s.paid);
   $("#statBalanceFoot").textContent = `${fmtAED(s.due)} balance due`;
   $("#navLeadCount").textContent = s.total;
 
-  // funnel
   const colors = {
     "New": "var(--teal)",
     "In Review": "#e0a83c",
@@ -142,6 +296,7 @@ function renderOverview() {
     "Disbursed": "var(--blue)",
   };
   const max = Math.max(1, ...STATUSES.map((st) => leads.filter((l) => l.status === st).length));
+
   $("#funnel").innerHTML = STATUSES.map((st) => {
     const count = leads.filter((l) => l.status === st).length;
     return `
@@ -152,26 +307,27 @@ function renderOverview() {
       </div>`;
   }).join("");
 
-  // recent activity (latest 6 by submitted/disbursed date)
   const recent = [...leads]
-    .sort((a, b) => (b.disbursedAt || b.submittedAt).localeCompare(a.disbursedAt || a.submittedAt))
+    .sort((a, b) => (b.disbursedAt || b.submittedAt || "").localeCompare(a.disbursedAt || a.submittedAt || ""))
     .slice(0, 6);
 
-  $("#activityList").innerHTML = recent.map((l) => {
-    const verb = {
-      "New": "was submitted",
-      "In Review": "is in eligibility review",
-      "Approved": "was approved",
-      "Rejected": "was rejected",
-      "Disbursed": `was disbursed — ${fmtAED(l.commission)} commission`,
-    }[l.status];
-    return `
-      <li>
-        <span class="activity-dot" style="background:${colors[l.status]}"></span>
-        <span class="activity-text"><strong>${l.companyName}</strong> ${verb}</span>
-        <span class="activity-when">${fmtDate(l.disbursedAt || l.submittedAt)}</span>
-      </li>`;
-  }).join("");
+  $("#activityList").innerHTML = recent.length
+    ? recent.map((l) => {
+        const verb = {
+          "New": "was submitted",
+          "In Review": "is in eligibility review",
+          "Approved": "was approved",
+          "Rejected": "was rejected",
+          "Disbursed": `was disbursed — ${fmtAED(l.commission)} commission`,
+        }[l.status];
+        return `
+          <li>
+            <span class="activity-dot" style="background:${colors[l.status]}"></span>
+            <span class="activity-text"><strong>${esc(l.companyName)}</strong> ${verb}</span>
+            <span class="activity-when">${fmtDate(l.disbursedAt || l.submittedAt)}</span>
+          </li>`;
+      }).join("")
+    : `<li class="activity-empty">No activity yet — submit your first lead to get started.</li>`;
 }
 
 function renderLeadsTable() {
@@ -184,20 +340,29 @@ function renderLeadsTable() {
       l.companyName.toLowerCase().includes(q) ||
       l.mobile.replace(/\s/g, "").includes(q.replace(/\s/g, ""))
     )
-    .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
+    .sort((a, b) => (b.submittedAt || "").localeCompare(a.submittedAt || ""));
 
-  $("#leadsEmpty").hidden = rows.length > 0;
+  const emptyEl = $("#leadsEmpty");
+  if (!leads.length) {
+    emptyEl.hidden = false;
+    emptyEl.textContent = "No leads yet — use Submit a Lead to refer your first SME.";
+  } else if (!rows.length) {
+    emptyEl.hidden = false;
+    emptyEl.textContent = "No leads match this filter.";
+  } else {
+    emptyEl.hidden = true;
+  }
 
   $("#leadsTbody").innerHTML = rows.map((l) => `
     <tr>
-      <td class="lead-name">${l.leadName}</td>
-      <td>${l.companyName}</td>
-      <td class="cell-muted">${l.mobile}</td>
+      <td class="lead-name">${esc(l.leadName)}</td>
+      <td>${esc(l.companyName)}</td>
+      <td class="cell-muted">${esc(l.mobile)}</td>
       <td class="cell-muted">${vatLabel[l.vat] || "—"}</td>
-      <td>${fmtAED(l.turnover)}</td>
+      <td>${l.turnover ? fmtAED(l.turnover) : "—"}</td>
       <td class="cell-muted">${fmtDate(l.submittedAt)}</td>
-      <td><span class="badge ${BADGE_CLASS[l.status]}">${l.status}</span></td>
-      <td class="num">${l.status === "Disbursed" ? fmtAED(l.commission) : "—"}</td>
+      <td><span class="badge ${BADGE_CLASS[l.status] || "badge-new"}">${esc(l.status)}</span></td>
+      <td class="num">${l.status === "Disbursed" && l.commission ? fmtAED(l.commission) : "—"}</td>
     </tr>`).join("");
 }
 
@@ -223,11 +388,17 @@ function renderCommissions() {
   const rows = [...s.disbursed].sort((a, b) =>
     (b.disbursedAt || "").localeCompare(a.disbursedAt || "")
   );
-  $("#commEmpty").hidden = rows.length > 0;
+
+  const commEmpty = $("#commEmpty");
+  commEmpty.hidden = rows.length > 0;
+  commEmpty.textContent = rows.length
+    ? ""
+    : "No disbursed leads yet — commissions appear here once a facility is live.";
+
   $("#commTbody").innerHTML = rows.map((l) => `
     <tr>
-      <td class="lead-name">${l.leadName}</td>
-      <td>${l.companyName}</td>
+      <td class="lead-name">${esc(l.leadName)}</td>
+      <td>${esc(l.companyName)}</td>
       <td class="cell-muted">${fmtDate(l.disbursedAt)}</td>
       <td class="num">${fmtAED(l.commission)}</td>
       <td><span class="badge ${l.paidOut ? "badge-paid" : "badge-unpaid"}">${l.paidOut ? "Paid" : "Due"}</span></td>
@@ -238,14 +409,45 @@ function renderAll() {
   renderOverview();
   renderLeadsTable();
   renderCommissions();
+  updateSetupBanner();
+  updateFormState();
 }
 
-/* ------------------------- tabs ------------------------- */
+function updateFormState() {
+  const btn = $("#submitBtn");
+  const note = $("#submitHint");
+  if (!btn) return;
 
-function switchTab(tab) {
+  btn.disabled = isLoading;
+
+  if (note) {
+    if (!config?.partner?.slug) {
+      note.textContent = "Use a partner URL like /partnerportal-comfi/submitlead — n8n reads that to tag your partner in Zoho.";
+      note.classList.add("hint-warn");
+    } else if (!config?.submitWebhookUrl) {
+      note.textContent = "Add submitWebhookUrl to config.json.";
+      note.classList.add("hint-warn");
+    } else {
+      note.textContent = "Your lead is routed to the Linkit team instantly via the partner pipeline.";
+      note.classList.remove("hint-warn");
+    }
+  }
+}
+
+/* ------------------------- tabs & routing ------------------------- */
+
+function switchTab(tab, { replace = false } = {}) {
   $$(".nav-item").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
   $$(".tab-panel").forEach((p) => p.classList.toggle("active", p.id === `tab-${tab}`));
-  history.replaceState(null, "", `#${tab}`);
+
+  const base = getPartnerBasePath();
+  if (base) {
+    const segment = TAB_TO_PATH[tab];
+    const path = segment ? `${base}/${segment}` : `${base}/`;
+    if (replace) history.replaceState({ tab }, "", path);
+    else history.pushState({ tab }, "", path);
+  }
+
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -257,7 +459,12 @@ $$("[data-goto]").forEach((btn) =>
   btn.addEventListener("click", () => switchTab(btn.dataset.goto))
 );
 
-/* ------------------------- filters / search ------------------------- */
+window.addEventListener("popstate", () => {
+  const tab = tabFromPath();
+  if (tab) switchTab(tab, { replace: true });
+});
+
+/* ------------------------- filters / search / refresh ------------------------- */
 
 $("#filterChips").addEventListener("click", (e) => {
   const chip = e.target.closest(".chip");
@@ -272,9 +479,20 @@ $("#leadSearch").addEventListener("input", (e) => {
   renderLeadsTable();
 });
 
+$("#refreshBtn")?.addEventListener("click", async () => {
+  await loadLeads();
+  renderAll();
+  showToast("Leads refreshed");
+});
+
 /* ------------------------- lead form ------------------------- */
 
 let selectedVat = null;
+
+$("#mobile").addEventListener("input", (e) => {
+  const digits = e.target.value.replace(/\D/g, "");
+  if (e.target.value !== digits) e.target.value = digits;
+});
 
 $("#vatSegment").addEventListener("click", (e) => {
   const btn = e.target.closest("button");
@@ -287,15 +505,26 @@ $("#vatSegment").addEventListener("click", (e) => {
 $("#leadForm").addEventListener("submit", async (e) => {
   e.preventDefault();
 
+  if (!canSubmit()) {
+    showToast("Open /partnerportal-YOURNAME/submitlead to submit", "error");
+    return;
+  }
+
   const form = e.target;
   let valid = true;
 
-  ["leadName", "companyName", "mobile", "turnover"].forEach((id) => {
+  ["leadName", "companyName", "mobile", "turnover", "business_location"].forEach((id) => {
     const input = $("#" + id);
     const bad = !input.value.trim();
     input.classList.toggle("invalid", bad);
     if (bad) valid = false;
   });
+
+  const mobileVal = $("#mobile").value.trim();
+  if (mobileVal && !/^\d+$/.test(mobileVal)) {
+    $("#mobile").classList.add("invalid");
+    valid = false;
+  }
 
   if (!selectedVat) {
     $("#vatSegment").classList.add("invalid");
@@ -307,76 +536,53 @@ $("#leadForm").addEventListener("submit", async (e) => {
     return;
   }
 
-  const payload = {
-    partnerId: CONFIG.partner.id,
-    partnerName: CONFIG.partner.name,
-    leadName: $("#leadName").value.trim(),
-    companyName: $("#companyName").value.trim(),
-    mobile: $("#mobile").value.trim(),
-    vatRegistered: selectedVat,
-    turnover: Number($("#turnover").value),
-    submittedAt: new Date().toISOString(),
-  };
-
+  const payload = buildSubmitPayload();
   const btn = $("#submitBtn");
   btn.disabled = true;
   btn.textContent = "Submitting…";
+  setLoading(true);
 
   try {
-    if (CONFIG.submitWebhookUrl) {
-      const res = await fetch(CONFIG.submitWebhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error(`Webhook returned ${res.status}`);
-    }
-
-    // reflect the new lead in the portal immediately
-    leads.unshift({
-      id: "L-" + Date.now().toString().slice(-6),
-      leadName: payload.leadName,
-      companyName: payload.companyName,
-      mobile: payload.mobile,
-      vat: payload.vatRegistered,
-      turnover: payload.turnover,
-      status: "New",
-      commission: 0,
-      paidOut: false,
-      submittedAt: payload.submittedAt.slice(0, 10),
+    const res = await fetch(config.submitWebhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
+    if (!res.ok) throw new Error(`Webhook returned ${res.status}`);
 
-    renderAll();
     form.reset();
     selectedVat = null;
     $$("#vatSegment button").forEach((b) => b.classList.remove("selected"));
-    showToast(
-      CONFIG.submitWebhookUrl
-        ? "Lead submitted to Linkit — you'll see status updates here"
-        : "Lead added (demo mode — set submitWebhookUrl to go live)"
-    );
-    switchTab("leads");
+
+    if (hasLeadsFeed()) await loadLeads();
+    renderAll();
+    showToast("Lead submitted — the Linkit team will review it shortly");
+    switchTab(hasLeadsFeed() ? "leads" : "submit");
   } catch (err) {
     console.error(err);
     showToast("Submission failed — please try again", "error");
   } finally {
     btn.disabled = false;
     btn.textContent = "Submit Lead\u00A0→";
+    setLoading(false);
+    updateFormState();
   }
 });
 
 /* ------------------------- init ------------------------- */
 
 (async function init() {
-  const { name, id } = CONFIG.partner;
-  $("#partnerName").textContent = name;
-  $("#partnerId").textContent = id;
-  $("#partnerAvatar").textContent = name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
-  $("#overviewPartnerFirst").textContent = name.split(" ")[0];
+  setLoading(true);
+  await loadConfig();
+  applyPartnerUI();
+  updateSetupBanner();
+  updateFormState();
 
-  await loadLeads();
+  if (hasLeadsFeed()) await loadLeads();
+
+  setLoading(false);
   renderAll();
 
-  const hash = location.hash.slice(1);
-  if (["overview", "submit", "leads", "commissions"].includes(hash)) switchTab(hash);
+  const tab = tabFromPath() || "overview";
+  switchTab(tab, { replace: true });
 })();
