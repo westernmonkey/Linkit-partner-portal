@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="referrer" content="unsafe-url" />
+  <title>Linkit Partner Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+  <div class="app">
+
+    <!-- ======================= SIDEBAR ======================= -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <img src="/assets/linkit-logo.png" alt="Lets Link It" />
+        <span class="portal-tag">Partner Portal</span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="overview">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+          Overview
+        </button>
+        <button class="nav-item" data-tab="submit">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M18 6v6M21 9h-6"/></svg>
+          Submit a Lead
+        </button>
+        <button class="nav-item" data-tab="leads">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M3 12h18M3 19h12"/></svg>
+          My Leads
+          <span class="nav-count" id="navLeadCount">0</span>
+        </button>
+        <button class="nav-item" data-tab="commissions">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M15 9.5c0-1.1-1.3-2-3-2s-3 .9-3 2 1.2 1.8 3 2 3 1 3 2.1-1.3 2-3 2-3-.9-3-2"/></svg>
+          Commissions
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="partner-chip">
+          <div class="partner-avatar" id="partnerAvatar">AC</div>
+          <div class="partner-meta">
+            <strong id="partnerName">Partner</strong>
+            <span id="partnerId">PTR-0000</span>
+          </div>
+        </div>
+        <a class="terms-link" href="https://letslinkit.com/" target="_blank" rel="noopener">View Partner Terms →</a>
+      </div>
+    </aside>
+
+    <!-- ======================= MAIN ======================= -->
+    <main class="main">
+
+      <!-- ============ TAB: OVERVIEW ============ -->
+      <section class="tab-panel active" id="tab-overview">
+        <header class="page-header">
+          <div>
+            <span class="eyebrow">Partnership Ecosystem</span>
+            <h1>Welcome back, <span class="accent" id="overviewPartnerFirst">Partner</span>.</h1>
+            <p class="sub">Here's how your referred SMEs are performing across the Linkit Trade OS.</p>
+          </div>
+          <button class="btn btn-dark" data-goto="submit">Submit a New Lead&nbsp;→</button>
+        </header>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <span class="stat-label">Leads Given</span>
+            <span class="stat-value" id="statTotal">0</span>
+            <span class="stat-foot" id="statTotalFoot">all time</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Commissions Earned</span>
+            <span class="stat-value" id="statEarned">AED 0</span>
+            <span class="stat-foot">from disbursed leads</span>
+          </div>
+          <div class="stat-card stat-green">
+            <span class="stat-label">Approved</span>
+            <span class="stat-value" id="statApproved">0</span>
+            <span class="stat-foot">awaiting disbursal</span>
+          </div>
+          <div class="stat-card stat-red">
+            <span class="stat-label">Rejected</span>
+            <span class="stat-value" id="statRejected">0</span>
+            <span class="stat-foot" id="statRejectedFoot">of all leads</span>
+          </div>
+          <div class="stat-card stat-blue">
+            <span class="stat-label">Disbursed</span>
+            <span class="stat-value" id="statDisbursed">0</span>
+            <span class="stat-foot">facilities live</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Commissions Paid Out</span>
+            <span class="stat-value" id="statPaid">AED 0</span>
+            <span class="stat-foot" id="statBalanceFoot">AED 0 balance due</span>
+          </div>
+        </div>
+
+        <div class="overview-split">
+          <div class="card">
+            <div class="card-head">
+              <h3>Lead Pipeline</h3>
+              <span class="muted-small">live funnel</span>
+            </div>
+            <div class="funnel" id="funnel"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <h3>Recent Activity</h3>
+              <button class="link-btn" data-goto="leads">View all →</button>
+            </div>
+            <ul class="activity-list" id="activityList"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ TAB: SUBMIT LEAD ============ -->
+      <section class="tab-panel" id="tab-submit">
+        <header class="page-header">
+          <div>
+            <span class="eyebrow">New Referral</span>
+            <h1>Submit a <span class="accent">Lead</span>.</h1>
+            <p class="sub">Refer an SME to the Linkit Trade OS. Earn competitive referral fees while helping businesses bridge the finance gap.</p>
+          </div>
+        </header>
+
+        <div class="submit-split">
+          <form class="card form-card" id="leadForm" novalidate>
+            <div class="form-row">
+              <div class="field">
+                <label for="full_name">Name of Lead <em>*</em></label>
+                <input type="text" id="full_name" name="full_name" placeholder="e.g. Nasser Rahman" required />
+              </div>
+              <div class="field">
+                <label for="company_name">Company Name <em>*</em></label>
+                <input type="text" id="company_name" name="company_name" placeholder="e.g. Gulf Trading FZE" required />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="field">
+                <label for="mobile_number">Mobile Number <em>*</em></label>
+                <div class="phone-input" id="mobileField">
+                  <select id="mobile_country_code" name="mobile_country_code" aria-label="Country code">
+                    <option value="+971" selected>🇦🇪 +971</option>
+                    <option value="+966">🇸🇦 +966</option>
+                    <option value="+968">🇴🇲 +968</option>
+                    <option value="+973">🇧🇭 +973</option>
+                    <option value="+965">🇰🇼 +965</option>
+                    <option value="+974">🇶🇦 +974</option>
+                    <option value="+91">🇮🇳 +91</option>
+                    <option value="+92">🇵🇰 +92</option>
+                    <option value="+44">🇬🇧 +44</option>
+                    <option value="+1">🇺🇸 +1</option>
+                  </select>
+                  <input
+                    type="tel"
+                    id="mobile_number"
+                    name="mobile_number"
+                    inputmode="numeric"
+                    autocomplete="tel-national"
+                    placeholder="50 123 4567"
+                    required
+                  />
+                </div>
+              </div>
+              <div class="field">
+                <label for="business_location">Business Location <em>*</em></label>
+                <input type="text" id="business_location" name="business_location" placeholder="e.g. Dubai, UAE" required />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="field">
+                <label for="turnover_sales">Annual Turnover (AED) <em>*</em></label>
+                <input
+                  type="text"
+                  id="turnover_sales"
+                  name="turnover_sales"
+                  inputmode="numeric"
+                  placeholder="e.g. 5000000"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="field">
+              <label>VAT Registered? <em>*</em></label>
+              <div class="segmented" id="vatSegment">
+                <button type="button" data-vat="Yes">Yes</button>
+                <button type="button" data-vat="No">No</button>
+                <button type="button" data-vat="I don't know">I don't know</button>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-dark btn-lg" id="submitBtn">Submit Lead&nbsp;→</button>
+              <p class="form-note">Your lead is routed to the Linkit team instantly via the partner pipeline.</p>
+            </div>
+          </form>
+
+          <aside class="side-info">
+            <div class="card info-card">
+              <h4>How referrals work</h4>
+              <ol class="steps">
+                <li><strong>Submit the lead</strong><span>Share basic details of the SME you're referring.</span></li>
+                <li><strong>Eligibility review</strong><span>The Linkit team reviews and contacts the lead within 48 hours.</span></li>
+                <li><strong>Approval &amp; disbursal</strong><span>Once funding is disbursed, your commission is locked in.</span></li>
+                <li><strong>Get paid</strong><span>Commissions are paid out in monthly settlement cycles.</span></li>
+              </ol>
+            </div>
+            <div class="card partner-visual-card">
+              <div class="partner-visual-bg" aria-hidden="true">
+                <span class="orb orb-1"></span>
+                <span class="orb orb-2"></span>
+                <span class="orb orb-3"></span>
+              </div>
+              <div class="partner-visual-content">
+                <span class="partner-visual-badge">Partner Pipeline</span>
+                <div class="partner-flow">
+                  <div class="flow-step">
+                    <span class="flow-dot flow-dot-teal"></span>
+                    <span class="flow-label">New</span>
+                  </div>
+                  <span class="flow-line"></span>
+                  <div class="flow-step">
+                    <span class="flow-dot flow-dot-gold"></span>
+                    <span class="flow-label">Review</span>
+                  </div>
+                  <span class="flow-line"></span>
+                  <div class="flow-step">
+                    <span class="flow-dot flow-dot-green"></span>
+                    <span class="flow-label">Approved</span>
+                  </div>
+                  <span class="flow-line"></span>
+                  <div class="flow-step">
+                    <span class="flow-dot flow-dot-blue"></span>
+                    <span class="flow-label">Paid</span>
+                  </div>
+                </div>
+                <div class="partner-visual-shine"></div>
+                <p class="partner-visual-note">Every referral you submit moves through the Linkit funnel — tracked and visible in your portal.</p>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ============ TAB: MY LEADS ============ -->
+      <section class="tab-panel" id="tab-leads">
+        <header class="page-header">
+          <div>
+            <span class="eyebrow">Pipeline</span>
+            <h1>My <span class="accent">Leads</span>.</h1>
+            <p class="sub">Track every referral you've made and where it sits in the Linkit funnel.</p>
+          </div>
+          <button class="btn btn-dark" data-goto="submit">+ New Lead</button>
+        </header>
+
+        <div class="card table-card">
+          <div class="table-toolbar">
+            <div class="filter-chips" id="filterChips">
+              <button class="chip active" data-filter="all">All</button>
+              <button class="chip" data-filter="New">New</button>
+              <button class="chip" data-filter="In Review">In Review</button>
+              <button class="chip" data-filter="Approved">Approved</button>
+              <button class="chip" data-filter="Rejected">Rejected</button>
+              <button class="chip" data-filter="Disbursed">Disbursed</button>
+            </div>
+            <input type="search" id="leadSearch" class="search-input" placeholder="Search leads…" />
+          </div>
+          <div class="table-wrap">
+            <table class="leads-table">
+              <thead>
+                <tr>
+                  <th>Lead</th>
+                  <th>Company</th>
+                  <th>Mobile</th>
+                  <th>VAT</th>
+                  <th>Turnover</th>
+                  <th>Submitted</th>
+                  <th>Status</th>
+                  <th class="num">Commission</th>
+                </tr>
+              </thead>
+              <tbody id="leadsTbody"></tbody>
+            </table>
+            <p class="empty-state" id="leadsEmpty" hidden>No leads match this filter.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ TAB: COMMISSIONS ============ -->
+      <section class="tab-panel" id="tab-commissions">
+        <header class="page-header">
+          <div>
+            <span class="eyebrow">Earnings</span>
+            <h1>Your <span class="accent">Commissions</span>.</h1>
+            <p class="sub">Commissions accrue when a referred lead's facility is disbursed, and are settled monthly.</p>
+          </div>
+        </header>
+
+        <div class="comm-grid">
+          <div class="card comm-hero">
+            <span class="stat-label">Total Commissions Earned</span>
+            <span class="comm-big" id="commTotal">AED 0</span>
+            <div class="comm-bar">
+              <div class="comm-bar-fill" id="commBarFill"></div>
+            </div>
+            <div class="comm-legend">
+              <span><i class="dot dot-green"></i>Paid out <strong id="commPaid">AED 0</strong></span>
+              <span><i class="dot dot-blue"></i>Balance due <strong id="commDue">AED 0</strong></span>
+            </div>
+          </div>
+          <div class="card comm-mini">
+            <span class="stat-label">Next Settlement</span>
+            <span class="comm-mid" id="commNextDate">—</span>
+            <span class="stat-foot">monthly payout cycle</span>
+          </div>
+          <div class="card comm-mini">
+            <span class="stat-label">Avg. Commission / Disbursed Lead</span>
+            <span class="comm-mid" id="commAvg">AED 0</span>
+            <span class="stat-foot" id="commAvgFoot">across 0 disbursals</span>
+          </div>
+        </div>
+
+        <div class="card table-card">
+          <div class="card-head">
+            <h3>Commission Ledger</h3>
+            <span class="muted-small">disbursed leads only</span>
+          </div>
+          <div class="table-wrap">
+            <table class="leads-table">
+              <thead>
+                <tr>
+                  <th>Lead</th>
+                  <th>Company</th>
+                  <th>Disbursed On</th>
+                  <th class="num">Commission</th>
+                  <th>Payout Status</th>
+                </tr>
+              </thead>
+              <tbody id="commTbody"></tbody>
+            </table>
+            <p class="empty-state" id="commEmpty" hidden>No disbursed leads yet — commissions will appear here.</p>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/partners.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

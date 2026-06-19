@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Partner Login — Linkit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="auth-page">
+
+  <main class="auth-wrap">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <img src="/assets/linkit-logo.png" alt="Lets Link It" />
+        <span class="portal-tag">Partner Portal</span>
+      </div>
+
+      <div class="auth-head">
+        <h1>Welcome back</h1>
+        <p>Enter your Partner ID to access your referral dashboard.</p>
+      </div>
+
+      <form class="auth-form" id="loginForm" novalidate>
+        <div class="field">
+          <label for="partnerSlug">Partner ID <em>*</em></label>
+          <input
+            type="text"
+            id="partnerSlug"
+            name="partnerSlug"
+            placeholder="e.g. comfi"
+            autocomplete="username"
+            autocapitalize="none"
+            spellcheck="false"
+            required
+          />
+        </div>
+
+        <p class="auth-error" id="loginError" hidden>Partner ID not recognized. Please check and try again.</p>
+
+        <button type="submit" class="btn btn-dark btn-lg auth-submit" id="loginBtn">
+          Enter Portal&nbsp;→
+        </button>
+      </form>
+
+      <p class="auth-foot">Need access? Contact your Linkit partner manager.</p>
+    </div>
+  </main>
+
+  <script src="/partners.js"></script>
+  <script src="/login.js"></script>
+</body>
+</html>
