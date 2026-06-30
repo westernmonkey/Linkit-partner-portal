@@ -137,34 +137,6 @@ function hasLeadsFeed() {
   return Boolean(config?.leadsFeedUrl && config?.partner?.slug);
 }
 
-function updateSetupBanner() {
-  const banner = $("#setupBanner");
-  if (!banner) return;
-
-  const notes = [];
-
-  if (!config?.partner?.slug) {
-    notes.push(
-      "Open at <code>/partnerportal-YOURNAME/</code> (e.g. <code>/partnerportal-comfi/submitlead</code>). " +
-      "n8n reads the Referer header to tag the partner in Zoho."
-    );
-  }
-  if (!config?.submitWebhookUrl) {
-    notes.push("Set <code>submitWebhookUrl</code> in <code>config.json</code>.");
-  }
-  if (!hasLeadsFeed()) {
-    notes.push("Dashboard needs <code>leadsFeedUrl</code> in config (optional — submit still works).");
-  }
-
-  if (!notes.length) {
-    banner.hidden = true;
-    return;
-  }
-
-  banner.hidden = false;
-  banner.innerHTML = notes.map((n) => `<p>${n}</p>`).join("");
-}
-
 function applyPartnerUI() {
   const { slug, portalPath } = config.partner;
   $("#partnerName").textContent = slug || "—";
@@ -409,7 +381,6 @@ function renderAll() {
   renderOverview();
   renderLeadsTable();
   renderCommissions();
-  updateSetupBanner();
   updateFormState();
 }
 
@@ -575,7 +546,6 @@ $("#leadForm").addEventListener("submit", async (e) => {
   setLoading(true);
   await loadConfig();
   applyPartnerUI();
-  updateSetupBanner();
   updateFormState();
 
   if (hasLeadsFeed()) await loadLeads();
